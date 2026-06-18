@@ -1,0 +1,572 @@
+-- MAYASE database seed
+-- Default seed password for all demo accounts: Mayase123!
+CREATE DATABASE IF NOT EXISTS `mayase_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE `mayase_db`;
+SET FOREIGN_KEY_CHECKS=0;
+DROP TABLE IF EXISTS `remember_tokens`;
+DROP TABLE IF EXISTS `password_resets`;
+DROP TABLE IF EXISTS `payments`;
+DROP TABLE IF EXISTS `subscriptions`;
+DROP TABLE IF EXISTS `activity_logs`;
+DROP TABLE IF EXISTS `notifications`;
+DROP TABLE IF EXISTS `portfolio_items`;
+DROP TABLE IF EXISTS `applications`;
+DROP TABLE IF EXISTS `requests`;
+DROP TABLE IF EXISTS `projects`;
+DROP TABLE IF EXISTS `talents`;
+DROP TABLE IF EXISTS `clients`;
+DROP TABLE IF EXISTS `users`;
+DROP TABLE IF EXISTS `categories`;
+DROP TABLE IF EXISTS `settings`;
+SET FOREIGN_KEY_CHECKS=1;
+
+
+CREATE TABLE `categories` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` VARCHAR(80) NOT NULL,
+  `slug` VARCHAR(80) NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_categories_name` (`name`),
+  UNIQUE KEY `uniq_categories_slug` (`slug`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `settings` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `setting_key` VARCHAR(120) NOT NULL,
+  `setting_value` TEXT NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_setting_key` (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `users` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `role` ENUM('super_admin','agent','project_owner','talent') NOT NULL,
+  `full_name` VARCHAR(120) NOT NULL,
+  `email` VARCHAR(190) NOT NULL,
+  `phone` VARCHAR(30) DEFAULT NULL,
+  `password_hash` VARCHAR(255) NOT NULL,
+  `avatar_path` VARCHAR(255) DEFAULT NULL,
+  `bio` TEXT DEFAULT NULL,
+  `is_active` TINYINT(1) NOT NULL DEFAULT 1,
+  `is_approved` TINYINT(1) NOT NULL DEFAULT 1,
+  `last_login_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_users_email` (`email`),
+  UNIQUE KEY `uniq_users_phone` (`phone`),
+  KEY `idx_users_role` (`role`),
+  KEY `idx_users_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `talents` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `talent_code` VARCHAR(20) NOT NULL,
+  `nickname` VARCHAR(120) NOT NULL,
+  `category_id` INT UNSIGNED NOT NULL,
+  `wilaya` VARCHAR(60) NOT NULL,
+  `bio` TEXT NOT NULL,
+  `skills` TEXT NOT NULL,
+  `experience_years` INT UNSIGNED NOT NULL DEFAULT 0,
+  `availability` VARCHAR(120) NOT NULL DEFAULT 'Available',
+  `profile_photo` VARCHAR(255) DEFAULT NULL,
+  `status` ENUM('pending','approved','rejected') NOT NULL DEFAULT 'approved',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_talents_user_id` (`user_id`),
+  UNIQUE KEY `uniq_talents_code` (`talent_code`),
+  UNIQUE KEY `uniq_talents_nickname` (`nickname`),
+  KEY `idx_talents_category` (`category_id`),
+  KEY `idx_talents_wilaya` (`wilaya`),
+  KEY `idx_talents_status` (`status`),
+  CONSTRAINT `fk_talents_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_talents_category` FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `clients` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `company_name` VARCHAR(190) NOT NULL,
+  `wilaya` VARCHAR(60) NOT NULL,
+  `company_bio` TEXT DEFAULT NULL,
+  `subscription_status` ENUM('trial','active','expired') NOT NULL DEFAULT 'trial',
+  `trial_ends_at` DATE DEFAULT NULL,
+  `subscription_ends_at` DATE DEFAULT NULL,
+  `status` ENUM('pending','approved','rejected') NOT NULL DEFAULT 'approved',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_clients_user_id` (`user_id`),
+  UNIQUE KEY `uniq_clients_company_name` (`company_name`),
+  KEY `idx_clients_wilaya` (`wilaya`),
+  KEY `idx_clients_subscription_status` (`subscription_status`),
+  CONSTRAINT `fk_clients_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `projects` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `client_id` INT UNSIGNED NOT NULL,
+  `title` VARCHAR(190) NOT NULL,
+  `description` TEXT NOT NULL,
+  `category_id` INT UNSIGNED DEFAULT NULL,
+  `required_roles` VARCHAR(255) DEFAULT NULL,
+  `wilaya` VARCHAR(60) NOT NULL,
+  `budget` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `deadline` DATE DEFAULT NULL,
+  `status` ENUM('open','closed','in_progress','completed') NOT NULL DEFAULT 'open',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_projects_client` (`client_id`),
+  KEY `idx_projects_category` (`category_id`),
+  KEY `idx_projects_status` (`status`),
+  KEY `idx_projects_wilaya` (`wilaya`),
+  CONSTRAINT `fk_projects_client` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_projects_category` FOREIGN KEY (`category_id`) REFERENCES `categories`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `applications` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `project_id` INT UNSIGNED NOT NULL,
+  `talent_id` INT UNSIGNED NOT NULL,
+  `cover_letter` TEXT DEFAULT NULL,
+  `status` ENUM('pending','approved','rejected','in_progress','completed') NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_app_project_talent` (`project_id`,`talent_id`),
+  KEY `idx_applications_project` (`project_id`),
+  KEY `idx_applications_talent` (`talent_id`),
+  KEY `idx_applications_status` (`status`),
+  CONSTRAINT `fk_applications_project` FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_applications_talent` FOREIGN KEY (`talent_id`) REFERENCES `talents`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `requests` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `client_id` INT UNSIGNED NOT NULL,
+  `talent_id` INT UNSIGNED NOT NULL,
+  `project_id` INT UNSIGNED DEFAULT NULL,
+  `message` TEXT NOT NULL,
+  `status` ENUM('pending','approved','rejected','in_progress','completed') NOT NULL DEFAULT 'pending',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_requests_client` (`client_id`),
+  KEY `idx_requests_talent` (`talent_id`),
+  KEY `idx_requests_project` (`project_id`),
+  KEY `idx_requests_status` (`status`),
+  CONSTRAINT `fk_requests_client` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_requests_talent` FOREIGN KEY (`talent_id`) REFERENCES `talents`(`id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `fk_requests_project` FOREIGN KEY (`project_id`) REFERENCES `projects`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `portfolio_items` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `talent_id` INT UNSIGNED NOT NULL,
+  `title` VARCHAR(190) NOT NULL,
+  `media_type` ENUM('image','video') NOT NULL DEFAULT 'image',
+  `file_path` VARCHAR(255) DEFAULT NULL,
+  `description` TEXT DEFAULT NULL,
+  `is_featured` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_portfolio_talent` (`talent_id`),
+  KEY `idx_portfolio_featured` (`is_featured`),
+  CONSTRAINT `fk_portfolio_talent` FOREIGN KEY (`talent_id`) REFERENCES `talents`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `notifications` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `type` VARCHAR(60) NOT NULL,
+  `title` VARCHAR(190) NOT NULL,
+  `body` TEXT NOT NULL,
+  `is_read` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_notifications_user` (`user_id`),
+  KEY `idx_notifications_read` (`is_read`),
+  CONSTRAINT `fk_notifications_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `activity_logs` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED DEFAULT NULL,
+  `action` VARCHAR(120) NOT NULL,
+  `context` TEXT DEFAULT NULL,
+  `ip_address` VARCHAR(45) DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_activity_user` (`user_id`),
+  KEY `idx_activity_action` (`action`),
+  CONSTRAINT `fk_activity_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `subscriptions` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `client_id` INT UNSIGNED NOT NULL,
+  `plan_name` VARCHAR(120) NOT NULL,
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `starts_at` DATE NOT NULL,
+  `ends_at` DATE NOT NULL,
+  `status` ENUM('trial','active','expired','cancelled') NOT NULL DEFAULT 'trial',
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_subscriptions_client` (`client_id`),
+  KEY `idx_subscriptions_status` (`status`),
+  CONSTRAINT `fk_subscriptions_client` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `payments` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `client_id` INT UNSIGNED DEFAULT NULL,
+  `user_id` INT UNSIGNED DEFAULT NULL,
+  `purpose` VARCHAR(190) NOT NULL,
+  `amount` DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  `status` ENUM('pending','paid','failed','refunded') NOT NULL DEFAULT 'paid',
+  `paid_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_payments_client` (`client_id`),
+  KEY `idx_payments_user` (`user_id`),
+  KEY `idx_payments_status` (`status`),
+  CONSTRAINT `fk_payments_client` FOREIGN KEY (`client_id`) REFERENCES `clients`(`id`) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT `fk_payments_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `remember_tokens` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `selector` VARCHAR(64) NOT NULL,
+  `token_hash` VARCHAR(255) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_selector` (`selector`),
+  KEY `idx_remember_user` (`user_id`),
+  CONSTRAINT `fk_remember_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE `password_resets` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT UNSIGNED NOT NULL,
+  `token_hash` VARCHAR(255) NOT NULL,
+  `expires_at` DATETIME NOT NULL,
+  `used_at` DATETIME DEFAULT NULL,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_reset_user` (`user_id`),
+  CONSTRAINT `fk_reset_user` FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO `categories` (`name`,`slug`) VALUES
+('Actor','actor'),
+('Screenwriter','screenwriter'),
+('Photographer','photographer'),
+('Video Editor','video-editor'),
+('Graphic Designer','graphic-designer'),
+('Makeup Artist','makeup-artist'),
+('Fashion Stylist','fashion-stylist');
+INSERT INTO `settings` (`setting_key`,`setting_value`) VALUES
+('site_name','MAYASE'),
+('site_tagline','Discover Talent. Create Opportunities.'),
+('currency','DZD'),
+('monthly_subscription_fee','12000'),
+('special_monthly_offer','9000'),
+('agent_monthly_pay','45000'),
+('free_trial_days','30'),
+('platform_commission_percent','10'),
+('support_email','support@mayase.dz');
+INSERT INTO `users` (`role`,`full_name`,`email`,`phone`,`password_hash`,`avatar_path`,`bio`,`is_active`,`is_approved`,`last_login_at`) VALUES
+('super_admin','Yacine Bensalem','superadmin@mayase.dz','0550000001','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Platform account',1,1,NULL),
+('agent','Nadia Bouzid','agent@mayase.dz','0550000002','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Platform account',1,1,NULL),
+('talent','Amine Len','lensdz@mayase.dz','0510000002','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Alger',1,1,NULL),
+('talent','Yacine Tle','tlemcenframes@mayase.dz','0510000003','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Constantine',1,1,NULL),
+('talent','Nadia Cre','creativeoran@mayase.dz','0510000004','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Béjaïa',1,1,NULL),
+('talent','Sara Cin','cinemadz@mayase.dz','0510000005','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Mostaganem',1,1,NULL),
+('talent','Ilyes Atl','atlasdesigner@mayase.dz','0510000006','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Adrar',1,1,NULL),
+('talent','Meriem DzS','dzstorymaker@mayase.dz','0510000007','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tlemcen',1,1,NULL),
+('talent','Bilal Vis','visualbyamine@mayase.dz','0510000008','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Sétif',1,1,NULL),
+('talent','Sofiane Set','setifeditor@mayase.dz','0510000009','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Blida',1,1,NULL),
+('talent','Ines Ora','orancreator@mayase.dz','0510000010','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Ouargla',1,1,NULL),
+('talent','Mounir Sah','saharalens@mayase.dz','0510000011','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Oran',1,1,NULL),
+('talent','Lina Aur','aurèsstyle@mayase.dz','0510000012','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Annaba',1,1,NULL),
+('talent','Anis Num','numidiamakeup@mayase.dz','0510000013','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Batna',1,1,NULL),
+('talent','Salma Bli','blidamotion@mayase.dz','0510000014','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tizi Ouzou',1,1,NULL),
+('talent','Riad Tiz','tiziscript@mayase.dz','0510000015','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Alger',1,1,NULL),
+('talent','Kenza Adr','adrarfocus@mayase.dz','0510000016','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Constantine',1,1,NULL),
+('talent','Walid Alg','algercanvas@mayase.dz','0510000017','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Béjaïa',1,1,NULL),
+('talent','Hafsa Mza','mzabbeauty@mayase.dz','0510000018','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Mostaganem',1,1,NULL),
+('talent','Mehdi Med','medeaframe@mayase.dz','0510000019','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Adrar',1,1,NULL),
+('talent','Rania Kab','kabyliestyle@mayase.dz','0510000020','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tlemcen',1,1,NULL),
+('talent','Farid Con','constantineact@mayase.dz','0510000021','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Sétif',1,1,NULL),
+('talent','Amina Pul','pulsephoto@mayase.dz','0510000022','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Blida',1,1,NULL),
+('talent','Karim Nad','nadiacut@mayase.dz','0510000023','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Ouargla',1,1,NULL),
+('talent','Aya Stu','studiosafi@mayase.dz','0510000024','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Oran',1,1,NULL),
+('talent','Houda Ora','oranpixel@mayase.dz','0510000025','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Annaba',1,1,NULL),
+('talent','Tarek Son','soniawardrobe@mayase.dz','0510000026','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Batna',1,1,NULL),
+('talent','Mina Ray','rayanscene@mayase.dz','0510000027','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tizi Ouzou',1,1,NULL),
+('talent','Nabil Han','hanaframes@mayase.dz','0510000028','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Alger',1,1,NULL),
+('talent','Dounia Yas','yassinemotion@mayase.dz','0510000029','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Constantine',1,1,NULL),
+('talent','Samir DzM','dzmakeuppro@mayase.dz','0510000030','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Béjaïa',1,1,NULL),
+('talent','Lamia Bor','bordjlens@mayase.dz','0510000031','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Mostaganem',1,1,NULL),
+('talent','Nassim Chl','chloestyledz@mayase.dz','0510000032','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Adrar',1,1,NULL),
+('talent','Imane Ade','adelvision@mayase.dz','0510000033','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tlemcen',1,1,NULL),
+('talent','Khaled Mil','milascript@mayase.dz','0510000034','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Sétif',1,1,NULL),
+('talent','Yasmine Sid','sidifilm@mayase.dz','0510000035','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Blida',1,1,NULL),
+('talent','Adel Ran','raniaedit@mayase.dz','0510000036','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Ouargla',1,1,NULL),
+('talent','Sonia Bis','biskraflash@mayase.dz','0510000037','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Oran',1,1,NULL),
+('talent','Ramy Yan','yanisbrand@mayase.dz','0510000038','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Annaba',1,1,NULL),
+('talent','Meryem Ami','aminashoot@mayase.dz','0510000039','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Batna',1,1,NULL),
+('talent','Hichem Sah','saharastylist@mayase.dz','0510000040','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tizi Ouzou',1,1,NULL),
+('talent','Ahlam Oma','omardialogue@mayase.dz','0510000041','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Alger',1,1,NULL),
+('talent','Noureddine ElK','elkalashot@mayase.dz','0510000042','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Constantine',1,1,NULL),
+('talent','Malak Mou','mounapalette@mayase.dz','0510000043','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Béjaïa',1,1,NULL),
+('talent','Zinedine Hic','hichemreel@mayase.dz','0510000044','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Mostaganem',1,1,NULL),
+('talent','Lydia Lyd','lydiaframe@mayase.dz','0510000045','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Adrar',1,1,NULL),
+('talent','Said Zin','zinedinestory@mayase.dz','0510000046','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Tlemcen',1,1,NULL),
+('talent','Widad Wid','widadstyle@mayase.dz','0510000047','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Sétif',1,1,NULL),
+('talent','Nadjet Nas','nassimpixels@mayase.dz','0510000048','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Blida',1,1,NULL),
+('talent','Yanis Sam','samialens@mayase.dz','0510000049','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Ouargla',1,1,NULL),
+('talent','Selma Dja','djazaircut@mayase.dz','0510000050','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Oran',1,1,NULL),
+('talent','Ayman Ima','imanescene@mayase.dz','0510000051','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Creative talent from Annaba',1,1,NULL),
+('project_owner','Lina B','saharamedia@mayase.dz','0610000052','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Sahara Media creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Anis C','numidiaagency@mayase.dz','0610000053','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Numidia Agency creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Salma D','atlascreative@mayase.dz','0610000054','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Atlas Creative creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Riad E','oranproductions@mayase.dz','0610000055','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Oran Productions creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Kenza F','tlemcenstudio@mayase.dz','0610000056','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Tlemcen Studio creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Walid G','aurèsfilms@mayase.dz','0610000057','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Aurès Films creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Hafsa H','algervision@mayase.dz','0610000058','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Alger Vision creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Mehdi I','dzmarketing@mayase.dz','0610000059','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Dz Marketing creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Rania J','maghrebhouse@mayase.dz','0610000060','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Maghreb House creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Farid K','bayastudio@mayase.dz','0610000061','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Baya Studio creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Amina B','casbahmedia@mayase.dz','0610000062','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Casbah Media creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Karim C','meknescreative@mayase.dz','0610000063','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Meknes Creative creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Aya D','dzmotion@mayase.dz','0610000064','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Dz Motion creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Houda E','annababrandlab@mayase.dz','0610000065','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Annaba Brand Lab creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Tarek F','setifculture@mayase.dz','0610000066','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Setif Culture creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Mina G','bejaiadream@mayase.dz','0610000067','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Bejaia Dream creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Nabil H','batnamedia@mayase.dz','0610000068','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Batna Media creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Dounia I','blidaframe@mayase.dz','0610000069','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Blida Frame creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Samir J','mostacontent@mayase.dz','0610000070','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Mosta Content creates campaigns, photo, and video productions across Algeria.',1,1,NULL),
+('project_owner','Lamia K','ouedstudio@mayase.dz','0610000071','$2y$12$BZD8fZH2vvQJPYzIqVnIrOVtawKqbawSlsw48snmZ/x0VR6gSyHnG',NULL,'Oued Studio creates campaigns, photo, and video productions across Algeria.',1,1,NULL);
+INSERT INTO `talents` (`user_id`,`talent_code`,`nickname`,`category_id`,`wilaya`,`bio`,`skills`,`experience_years`,`availability`,`profile_photo`,`status`) VALUES
+(3,'ACT-1023','LensDz',1,'Alger','LensDz is a actor based in Alger with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',2,'Available',NULL,'approved'),
+(4,'SCR-1040','TlemcenFrames',2,'Constantine','TlemcenFrames is a screenwriter based in Constantine with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',3,'Busy this week',NULL,'approved'),
+(5,'PHO-1057','CreativeOran',3,'Béjaïa','CreativeOran is a photographer based in Béjaïa with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',4,'Available for remote',NULL,'approved'),
+(6,'EDI-1074','CinemaDz',4,'Mostaganem','CinemaDz is a video editor based in Mostaganem with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',5,'Available evenings',NULL,'pending'),
+(7,'DES-1091','AtlasDesigner',5,'Adrar','AtlasDesigner is a graphic designer based in Adrar with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',6,'Available weekends',NULL,'approved'),
+(8,'MUA-1108','DzStoryMaker',6,'Tlemcen','DzStoryMaker is a makeup artist based in Tlemcen with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',7,'Available',NULL,'approved'),
+(9,'STY-1125','VisualByAmine',7,'Sétif','VisualByAmine is a fashion stylist based in Sétif with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',8,'Busy this week',NULL,'approved'),
+(10,'ACT-1142','SetifEditor',1,'Blida','SetifEditor is a actor based in Blida with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',9,'Available for remote',NULL,'pending'),
+(11,'SCR-1159','OranCreator',2,'Ouargla','OranCreator is a screenwriter based in Ouargla with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',10,'Available evenings',NULL,'approved'),
+(12,'PHO-1176','SaharaLens',3,'Oran','SaharaLens is a photographer based in Oran with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',2,'Available weekends',NULL,'approved'),
+(13,'EDI-1193','AurèsStyle',4,'Annaba','AurèsStyle is a video editor based in Annaba with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',3,'Available',NULL,'approved'),
+(14,'DES-1210','NumidiaMakeup',5,'Batna','NumidiaMakeup is a graphic designer based in Batna with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',4,'Busy this week',NULL,'pending'),
+(15,'MUA-1227','BlidaMotion',6,'Tizi Ouzou','BlidaMotion is a makeup artist based in Tizi Ouzou with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',5,'Available for remote',NULL,'approved'),
+(16,'STY-1244','TiziScript',7,'Alger','TiziScript is a fashion stylist based in Alger with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',6,'Available evenings',NULL,'approved'),
+(17,'ACT-1261','AdrarFocus',1,'Constantine','AdrarFocus is a actor based in Constantine with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',7,'Available weekends',NULL,'approved'),
+(18,'SCR-1278','AlgerCanvas',2,'Béjaïa','AlgerCanvas is a screenwriter based in Béjaïa with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',8,'Available',NULL,'pending'),
+(19,'PHO-1295','MzabBeauty',3,'Mostaganem','MzabBeauty is a photographer based in Mostaganem with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',9,'Busy this week',NULL,'approved'),
+(20,'EDI-1312','MedeaFrame',4,'Adrar','MedeaFrame is a video editor based in Adrar with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',10,'Available for remote',NULL,'approved'),
+(21,'DES-1329','KabylieStyle',5,'Tlemcen','KabylieStyle is a graphic designer based in Tlemcen with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',2,'Available evenings',NULL,'approved'),
+(22,'MUA-1346','ConstantineAct',6,'Sétif','ConstantineAct is a makeup artist based in Sétif with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',3,'Available weekends',NULL,'pending'),
+(23,'STY-1363','PulsePhoto',7,'Blida','PulsePhoto is a fashion stylist based in Blida with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',4,'Available',NULL,'approved'),
+(24,'ACT-1380','NadiaCut',1,'Ouargla','NadiaCut is a actor based in Ouargla with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',5,'Busy this week',NULL,'approved'),
+(25,'SCR-1397','StudioSafi',2,'Oran','StudioSafi is a screenwriter based in Oran with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',6,'Available for remote',NULL,'approved'),
+(26,'PHO-1414','OranPixel',3,'Annaba','OranPixel is a photographer based in Annaba with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',7,'Available evenings',NULL,'pending'),
+(27,'EDI-1431','SoniaWardrobe',4,'Batna','SoniaWardrobe is a video editor based in Batna with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',8,'Available weekends',NULL,'approved'),
+(28,'DES-1448','RayanScene',5,'Tizi Ouzou','RayanScene is a graphic designer based in Tizi Ouzou with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',9,'Available',NULL,'approved'),
+(29,'MUA-1465','HanaFrames',6,'Alger','HanaFrames is a makeup artist based in Alger with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',10,'Busy this week',NULL,'approved'),
+(30,'STY-1482','YassineMotion',7,'Constantine','YassineMotion is a fashion stylist based in Constantine with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',2,'Available for remote',NULL,'pending'),
+(31,'ACT-1499','DzMakeupPro',1,'Béjaïa','DzMakeupPro is a actor based in Béjaïa with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',3,'Available evenings',NULL,'approved'),
+(32,'SCR-1516','BordjLens',2,'Mostaganem','BordjLens is a screenwriter based in Mostaganem with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',4,'Available weekends',NULL,'approved'),
+(33,'PHO-1533','ChloéStyleDz',3,'Adrar','ChloéStyleDz is a photographer based in Adrar with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',5,'Available',NULL,'approved'),
+(34,'EDI-1550','AdelVision',4,'Tlemcen','AdelVision is a video editor based in Tlemcen with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',6,'Busy this week',NULL,'pending'),
+(35,'DES-1567','MilaScript',5,'Sétif','MilaScript is a graphic designer based in Sétif with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',7,'Available for remote',NULL,'approved'),
+(36,'MUA-1584','SidiFilm',6,'Blida','SidiFilm is a makeup artist based in Blida with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',8,'Available evenings',NULL,'approved'),
+(37,'STY-1601','RaniaEdit',7,'Ouargla','RaniaEdit is a fashion stylist based in Ouargla with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',9,'Available weekends',NULL,'approved'),
+(38,'ACT-1618','BiskraFlash',1,'Oran','BiskraFlash is a actor based in Oran with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',10,'Available',NULL,'pending'),
+(39,'SCR-1635','YanisBrand',2,'Annaba','YanisBrand is a screenwriter based in Annaba with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',2,'Busy this week',NULL,'approved'),
+(40,'PHO-1652','AminaShoot',3,'Batna','AminaShoot is a photographer based in Batna with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',3,'Available for remote',NULL,'approved'),
+(41,'EDI-1669','SaharaStylist',4,'Tizi Ouzou','SaharaStylist is a video editor based in Tizi Ouzou with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',4,'Available evenings',NULL,'approved'),
+(42,'DES-1686','OmarDialogue',5,'Alger','OmarDialogue is a graphic designer based in Alger with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',5,'Available weekends',NULL,'pending'),
+(43,'MUA-1703','ElKalaShot',6,'Constantine','ElKalaShot is a makeup artist based in Constantine with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',6,'Available',NULL,'approved'),
+(44,'STY-1720','MounaPalette',7,'Béjaïa','MounaPalette is a fashion stylist based in Béjaïa with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',7,'Busy this week',NULL,'approved'),
+(45,'ACT-1737','HichemReel',1,'Mostaganem','HichemReel is a actor based in Mostaganem with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',8,'Available for remote',NULL,'approved'),
+(46,'SCR-1754','LydiaFrame',2,'Adrar','LydiaFrame is a screenwriter based in Adrar with a strong Algerian visual identity and commercial storytelling style.','Script structure, dialogue, adaptation, pitching',9,'Available evenings',NULL,'pending'),
+(47,'PHO-1771','ZinedineStory',3,'Tlemcen','ZinedineStory is a photographer based in Tlemcen with a strong Algerian visual identity and commercial storytelling style.','Portraits, events, commercial shots, color grading',10,'Available weekends',NULL,'approved'),
+(48,'EDI-1788','WidadStyle',4,'Sétif','WidadStyle is a video editor based in Sétif with a strong Algerian visual identity and commercial storytelling style.','Narrative editing, pacing, color correction, motion graphics',2,'Available',NULL,'approved'),
+(49,'DES-1805','NassimPixels',5,'Blida','NassimPixels is a graphic designer based in Blida with a strong Algerian visual identity and commercial storytelling style.','Branding, posters, social media, typography',3,'Busy this week',NULL,'approved'),
+(50,'MUA-1822','SamiaLens',6,'Ouargla','SamiaLens is a makeup artist based in Ouargla with a strong Algerian visual identity and commercial storytelling style.','Beauty looks, cinematic makeup, bridal and event work',4,'Available for remote',NULL,'pending'),
+(51,'STY-1839','DjazairCut',7,'Oran','DjazairCut is a fashion stylist based in Oran with a strong Algerian visual identity and commercial storytelling style.','Wardrobe curation, shoot styling, trend direction',5,'Available evenings',NULL,'approved'),
+(52,'ACT-1856','ImaneScene',1,'Annaba','ImaneScene is a actor based in Annaba with a strong Algerian visual identity and commercial storytelling style.','Screen presence, casting, improvisation, commercial acting',6,'Available weekends',NULL,'approved');
+INSERT INTO `clients` (`user_id`,`company_name`,`wilaya`,`company_bio`,`subscription_status`,`trial_ends_at`,`subscription_ends_at`,`status`) VALUES
+(53,'Sahara Media','Alger','Sahara Media creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(54,'Numidia Agency','Oran','Numidia Agency creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(55,'Atlas Creative','Tlemcen','Atlas Creative creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(56,'Oran Productions','Constantine','Oran Productions creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(57,'Tlemcen Studio','Annaba','Tlemcen Studio creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(58,'Aurès Films','Sétif','Aurès Films creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(59,'Alger Vision','Béjaïa','Alger Vision creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(60,'Dz Marketing','Batna','Dz Marketing creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(61,'Maghreb House','Blida','Maghreb House creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(62,'Baya Studio','Mostaganem','Baya Studio creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(63,'Casbah Media','Tizi Ouzou','Casbah Media creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(64,'Meknes Creative','Ouargla','Meknes Creative creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(65,'Dz Motion','Adrar','Dz Motion creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(66,'Annaba Brand Lab','Alger','Annaba Brand Lab creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(67,'Setif Culture','Oran','Setif Culture creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(68,'Bejaia Dream','Tlemcen','Bejaia Dream creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(69,'Batna Media','Constantine','Batna Media creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(70,'Blida Frame','Annaba','Blida Frame creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved'),
+(71,'Mosta Content','Sétif','Mosta Content creates campaigns, photo, and video productions across Algeria.','trial',DATE_ADD(CURDATE(), INTERVAL 30 DAY),NULL,'approved'),
+(72,'Oued Studio','Béjaïa','Oued Studio creates campaigns, photo, and video productions across Algeria.','active',DATE_ADD(CURDATE(), INTERVAL 30 DAY),DATE_ADD(CURDATE(), INTERVAL 60 DAY),'approved');
+INSERT INTO `subscriptions` (`client_id`,`plan_name`,`amount`,`starts_at`,`ends_at`,`status`) VALUES
+(1,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 1 DAY),DATE_ADD(CURDATE(), INTERVAL 29 DAY),'trial'),
+(2,'Professional',12200,DATE_SUB(CURDATE(), INTERVAL 2 DAY),DATE_ADD(CURDATE(), INTERVAL 32 DAY),'active'),
+(3,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 3 DAY),DATE_ADD(CURDATE(), INTERVAL 27 DAY),'trial'),
+(4,'Professional',12400,DATE_SUB(CURDATE(), INTERVAL 4 DAY),DATE_ADD(CURDATE(), INTERVAL 34 DAY),'active'),
+(5,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 5 DAY),DATE_ADD(CURDATE(), INTERVAL 25 DAY),'trial'),
+(6,'Professional',12600,DATE_SUB(CURDATE(), INTERVAL 6 DAY),DATE_ADD(CURDATE(), INTERVAL 36 DAY),'active'),
+(7,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 7 DAY),DATE_ADD(CURDATE(), INTERVAL 23 DAY),'trial'),
+(8,'Professional',12800,DATE_SUB(CURDATE(), INTERVAL 8 DAY),DATE_ADD(CURDATE(), INTERVAL 38 DAY),'active'),
+(9,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 9 DAY),DATE_ADD(CURDATE(), INTERVAL 21 DAY),'trial'),
+(10,'Professional',13000,DATE_SUB(CURDATE(), INTERVAL 10 DAY),DATE_ADD(CURDATE(), INTERVAL 40 DAY),'active'),
+(11,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 11 DAY),DATE_ADD(CURDATE(), INTERVAL 19 DAY),'trial'),
+(12,'Professional',13200,DATE_SUB(CURDATE(), INTERVAL 12 DAY),DATE_ADD(CURDATE(), INTERVAL 42 DAY),'active'),
+(13,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 13 DAY),DATE_ADD(CURDATE(), INTERVAL 17 DAY),'trial'),
+(14,'Professional',13400,DATE_SUB(CURDATE(), INTERVAL 14 DAY),DATE_ADD(CURDATE(), INTERVAL 44 DAY),'active'),
+(15,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 15 DAY),DATE_ADD(CURDATE(), INTERVAL 15 DAY),'trial'),
+(16,'Professional',13600,DATE_SUB(CURDATE(), INTERVAL 16 DAY),DATE_ADD(CURDATE(), INTERVAL 46 DAY),'active'),
+(17,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 17 DAY),DATE_ADD(CURDATE(), INTERVAL 13 DAY),'trial'),
+(18,'Professional',13800,DATE_SUB(CURDATE(), INTERVAL 18 DAY),DATE_ADD(CURDATE(), INTERVAL 48 DAY),'active'),
+(19,'Trial',0,DATE_SUB(CURDATE(), INTERVAL 19 DAY),DATE_ADD(CURDATE(), INTERVAL 11 DAY),'trial'),
+(20,'Professional',14000,DATE_SUB(CURDATE(), INTERVAL 20 DAY),DATE_ADD(CURDATE(), INTERVAL 50 DAY),'active');
+INSERT INTO `payments` (`client_id`,`user_id`,`purpose`,`amount`,`status`,`paid_at`) VALUES
+(2,NULL,'Subscription payment',12200,'paid',NOW()),
+(4,NULL,'Subscription payment',12400,'paid',NOW()),
+(6,NULL,'Subscription payment',12600,'paid',NOW()),
+(8,NULL,'Subscription payment',12800,'paid',NOW()),
+(10,NULL,'Subscription payment',13000,'paid',NOW()),
+(12,NULL,'Subscription payment',13200,'paid',NOW()),
+(14,NULL,'Subscription payment',13400,'paid',NOW()),
+(16,NULL,'Subscription payment',13600,'paid',NOW()),
+(18,NULL,'Subscription payment',13800,'paid',NOW()),
+(20,NULL,'Subscription payment',14000,'paid',NOW());
+INSERT INTO `projects` (`client_id`,`title`,`description`,`category_id`,`required_roles`,`wilaya`,`budget`,`deadline`,`status`) VALUES
+(1,'TV Commercial','TV Commercial for Sahara Media with a focus on Algerian creative production and strong visual identity.',1,'Photographer,Graphic Designer','Tlemcen',53500,DATE_ADD(CURDATE(), INTERVAL 1 DAY),'closed'),
+(2,'Documentary Production','Documentary Production for Numidia Agency with a focus on Algerian creative production and strong visual identity.',2,'Screenwriter,Actor','Annaba',57000,DATE_ADD(CURDATE(), INTERVAL 2 DAY),'in_progress'),
+(3,'Brand Video Campaign','Brand Video Campaign for Atlas Creative with a focus on Algerian creative production and strong visual identity.',3,'Makeup Artist,Fashion Stylist','Béjaïa',60500,DATE_ADD(CURDATE(), INTERVAL 3 DAY),'completed'),
+(4,'Fashion Shoot','Fashion Shoot for Oran Productions with a focus on Algerian creative production and strong visual identity.',4,'Actor,Video Editor','Blida',64000,DATE_ADD(CURDATE(), INTERVAL 4 DAY),'open'),
+(5,'Wedding Photography','Wedding Photography for Tlemcen Studio with a focus on Algerian creative production and strong visual identity.',5,'Photographer,Graphic Designer','Tizi Ouzou',67500,DATE_ADD(CURDATE(), INTERVAL 5 DAY),'closed'),
+(6,'YouTube Documentary','YouTube Documentary for Aurès Films with a focus on Algerian creative production and strong visual identity.',6,'Screenwriter,Actor','Adrar',71000,DATE_ADD(CURDATE(), INTERVAL 6 DAY),'in_progress'),
+(7,'Social Media Campaign','Social Media Campaign for Alger Vision with a focus on Algerian creative production and strong visual identity.',7,'Makeup Artist,Fashion Stylist','Oran',74500,DATE_ADD(CURDATE(), INTERVAL 7 DAY),'completed'),
+(8,'Short Film Casting','Short Film Casting for Dz Marketing with a focus on Algerian creative production and strong visual identity.',1,'Actor,Video Editor','Constantine',78000,DATE_ADD(CURDATE(), INTERVAL 8 DAY),'open'),
+(9,'Corporate Event Coverage','Corporate Event Coverage for Maghreb House with a focus on Algerian creative production and strong visual identity.',2,'Photographer,Graphic Designer','Sétif',81500,DATE_ADD(CURDATE(), INTERVAL 9 DAY),'closed'),
+(10,'Music Video','Music Video for Baya Studio with a focus on Algerian creative production and strong visual identity.',3,'Screenwriter,Actor','Batna',85000,DATE_ADD(CURDATE(), INTERVAL 10 DAY),'in_progress'),
+(11,'Festival Promo','Festival Promo for Casbah Media with a focus on Algerian creative production and strong visual identity.',4,'Makeup Artist,Fashion Stylist','Mostaganem',88500,DATE_ADD(CURDATE(), INTERVAL 11 DAY),'completed'),
+(12,'Product Launch Video','Product Launch Video for Meknes Creative with a focus on Algerian creative production and strong visual identity.',5,'Actor,Video Editor','Ouargla',92000,DATE_ADD(CURDATE(), INTERVAL 12 DAY),'open'),
+(13,'Food Photography','Food Photography for Dz Motion with a focus on Algerian creative production and strong visual identity.',6,'Photographer,Graphic Designer','Alger',95500,DATE_ADD(CURDATE(), INTERVAL 13 DAY),'closed'),
+(14,'Real Estate Reel','Real Estate Reel for Annaba Brand Lab with a focus on Algerian creative production and strong visual identity.',7,'Screenwriter,Actor','Tlemcen',99000,DATE_ADD(CURDATE(), INTERVAL 14 DAY),'in_progress'),
+(15,'Podcast Visuals','Podcast Visuals for Setif Culture with a focus on Algerian creative production and strong visual identity.',1,'Makeup Artist,Fashion Stylist','Annaba',102500,DATE_ADD(CURDATE(), INTERVAL 15 DAY),'completed'),
+(16,'Cinema Trailer','Cinema Trailer for Bejaia Dream with a focus on Algerian creative production and strong visual identity.',2,'Actor,Video Editor','Béjaïa',106000,DATE_ADD(CURDATE(), INTERVAL 16 DAY),'open'),
+(17,'Makeup Campaign','Makeup Campaign for Batna Media with a focus on Algerian creative production and strong visual identity.',3,'Photographer,Graphic Designer','Blida',109500,DATE_ADD(CURDATE(), INTERVAL 17 DAY),'closed'),
+(18,'Streetwear Lookbook','Streetwear Lookbook for Blida Frame with a focus on Algerian creative production and strong visual identity.',4,'Screenwriter,Actor','Tizi Ouzou',113000,DATE_ADD(CURDATE(), INTERVAL 18 DAY),'in_progress'),
+(19,'Startup Pitch Video','Startup Pitch Video for Mosta Content with a focus on Algerian creative production and strong visual identity.',5,'Makeup Artist,Fashion Stylist','Adrar',116500,DATE_ADD(CURDATE(), INTERVAL 19 DAY),'completed'),
+(20,'Tourism Ad','Tourism Ad for Oued Studio with a focus on Algerian creative production and strong visual identity.',6,'Actor,Video Editor','Oran',120000,DATE_ADD(CURDATE(), INTERVAL 20 DAY),'open'),
+(1,'Brand Identity Refresh','Brand Identity Refresh for Sahara Media with a focus on Algerian creative production and strong visual identity.',7,'Photographer,Graphic Designer','Constantine',123500,DATE_ADD(CURDATE(), INTERVAL 21 DAY),'closed'),
+(2,'Recruitment Video','Recruitment Video for Numidia Agency with a focus on Algerian creative production and strong visual identity.',1,'Screenwriter,Actor','Sétif',127000,DATE_ADD(CURDATE(), INTERVAL 22 DAY),'in_progress'),
+(3,'Restaurant Campaign','Restaurant Campaign for Atlas Creative with a focus on Algerian creative production and strong visual identity.',2,'Makeup Artist,Fashion Stylist','Batna',130500,DATE_ADD(CURDATE(), INTERVAL 23 DAY),'completed'),
+(4,'Sports Highlight Reel','Sports Highlight Reel for Oran Productions with a focus on Algerian creative production and strong visual identity.',3,'Actor,Video Editor','Mostaganem',134000,DATE_ADD(CURDATE(), INTERVAL 24 DAY),'open'),
+(5,'TV Series Casting','TV Series Casting for Tlemcen Studio with a focus on Algerian creative production and strong visual identity.',4,'Photographer,Graphic Designer','Ouargla',137500,DATE_ADD(CURDATE(), INTERVAL 25 DAY),'closed'),
+(6,'Influencer Content Pack','Influencer Content Pack for Aurès Films with a focus on Algerian creative production and strong visual identity.',5,'Screenwriter,Actor','Alger',141000,DATE_ADD(CURDATE(), INTERVAL 26 DAY),'in_progress'),
+(7,'E-commerce Product Shoot','E-commerce Product Shoot for Alger Vision with a focus on Algerian creative production and strong visual identity.',6,'Makeup Artist,Fashion Stylist','Tlemcen',144500,DATE_ADD(CURDATE(), INTERVAL 27 DAY),'completed'),
+(8,'Cultural Event Coverage','Cultural Event Coverage for Dz Marketing with a focus on Algerian creative production and strong visual identity.',7,'Actor,Video Editor','Annaba',148000,DATE_ADD(CURDATE(), INTERVAL 28 DAY),'open'),
+(9,'Public Service Announcement','Public Service Announcement for Maghreb House with a focus on Algerian creative production and strong visual identity.',1,'Photographer,Graphic Designer','Béjaïa',151500,DATE_ADD(CURDATE(), INTERVAL 29 DAY),'closed'),
+(10,'Fashion Week Coverage','Fashion Week Coverage for Baya Studio with a focus on Algerian creative production and strong visual identity.',2,'Screenwriter,Actor','Blida',155000,DATE_ADD(CURDATE(), INTERVAL 30 DAY),'in_progress');
+INSERT INTO `portfolio_items` (`talent_id`,`title`,`media_type`,`file_path`,`description`,`is_featured`) VALUES
+(1,'LensDz Portfolio 1','image',NULL,'Selected work from LensDz.',1),
+(2,'TlemcenFrames Portfolio 2','image',NULL,'Selected work from TlemcenFrames.',1),
+(3,'CreativeOran Portfolio 3','video',NULL,'Selected work from CreativeOran.',1),
+(4,'CinemaDz Portfolio 4','image',NULL,'Selected work from CinemaDz.',1),
+(5,'AtlasDesigner Portfolio 5','image',NULL,'Selected work from AtlasDesigner.',1),
+(6,'DzStoryMaker Portfolio 6','video',NULL,'Selected work from DzStoryMaker.',1),
+(7,'VisualByAmine Portfolio 7','image',NULL,'Selected work from VisualByAmine.',1),
+(8,'SetifEditor Portfolio 8','image',NULL,'Selected work from SetifEditor.',1),
+(9,'OranCreator Portfolio 9','video',NULL,'Selected work from OranCreator.',0),
+(10,'SaharaLens Portfolio 10','image',NULL,'Selected work from SaharaLens.',0),
+(11,'AurèsStyle Portfolio 11','image',NULL,'Selected work from AurèsStyle.',0),
+(12,'NumidiaMakeup Portfolio 12','video',NULL,'Selected work from NumidiaMakeup.',0),
+(13,'BlidaMotion Portfolio 13','image',NULL,'Selected work from BlidaMotion.',0),
+(14,'TiziScript Portfolio 14','image',NULL,'Selected work from TiziScript.',0),
+(15,'AdrarFocus Portfolio 15','video',NULL,'Selected work from AdrarFocus.',0);
+INSERT INTO `applications` (`project_id`,`talent_id`,`cover_letter`,`status`) VALUES
+(1,12,'Interested in collaborating on this project with a strong visual delivery.','approved'),
+(2,13,'Interested in collaborating on this project with a strong visual delivery.','rejected'),
+(3,14,'Interested in collaborating on this project with a strong visual delivery.','in_progress'),
+(4,15,'Interested in collaborating on this project with a strong visual delivery.','completed'),
+(5,16,'Interested in collaborating on this project with a strong visual delivery.','pending'),
+(6,17,'Interested in collaborating on this project with a strong visual delivery.','approved'),
+(7,18,'Interested in collaborating on this project with a strong visual delivery.','rejected'),
+(8,19,'Interested in collaborating on this project with a strong visual delivery.','in_progress'),
+(9,20,'Interested in collaborating on this project with a strong visual delivery.','completed'),
+(10,21,'Interested in collaborating on this project with a strong visual delivery.','pending');
+INSERT INTO `requests` (`client_id`,`talent_id`,`project_id`,`message`,`status`) VALUES
+(5,22,1,'We would like to discuss availability and project scope for this role.','approved'),
+(6,23,2,'We would like to discuss availability and project scope for this role.','rejected'),
+(7,24,3,'We would like to discuss availability and project scope for this role.','in_progress'),
+(8,25,4,'We would like to discuss availability and project scope for this role.','completed'),
+(9,26,5,'We would like to discuss availability and project scope for this role.','pending'),
+(10,27,6,'We would like to discuss availability and project scope for this role.','approved'),
+(11,28,7,'We would like to discuss availability and project scope for this role.','rejected'),
+(12,29,8,'We would like to discuss availability and project scope for this role.','in_progress'),
+(13,30,9,'We would like to discuss availability and project scope for this role.','completed'),
+(14,31,10,'We would like to discuss availability and project scope for this role.','pending');
+INSERT INTO `notifications` (`user_id`,`type`,`title`,`body`,`is_read`) VALUES
+(3,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(4,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(5,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(6,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(7,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(8,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(9,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(10,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(11,'New Request','New mediation request received','A client has requested your talent for a new project.',0),
+(12,'New Request','New mediation request received','A client has requested your talent for a new project.',0);
+INSERT INTO `activity_logs` (`user_id`,`action`,`context`,`ip_address`) VALUES
+(3,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(4,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(5,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(6,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(7,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(8,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(9,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(10,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(11,'seed_import','Initial Algerian dataset imported','127.0.0.1'),
+(12,'seed_import','Initial Algerian dataset imported','127.0.0.1');
+SET FOREIGN_KEY_CHECKS=1;
